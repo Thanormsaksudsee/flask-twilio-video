@@ -3,11 +3,17 @@ from dotenv import load_dotenv
 from flask import Flask, render_template, request, abort
 from twilio.jwt.access_token import AccessToken
 from twilio.jwt.access_token.grants import VideoGrant
+from twilio.rest import Client #เพิ่มเข้ามา
+
+
+
+
+
 
 load_dotenv()
-twilio_account_sid = os.environ.get('TWILIO_ACCOUNT_SID')
-twilio_api_key_sid = os.environ.get('TWILIO_API_KEY_SID')
-twilio_api_key_secret = os.environ.get('TWILIO_API_KEY_SECRET')
+twilio_account_sid = 'AC224ed1fdd954915e8ceb92fd6af24ef8'
+twilio_api_key_sid = 'SK837567be456422a5afff843881d420ca'
+twilio_api_key_secret = 'ndOFOCjaRP7W3pstvKtn4XQjP2PFLvuF'
 
 app = Flask(__name__)
 
