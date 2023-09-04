@@ -1,11 +1,19 @@
+const root = document.getElementById('root');
 const usernameInput = document.getElementById('username');
 const button = document.getElementById('join_leave');
 const shareScreen = document.getElementById('share_screen');
+const toggleChat = document.getElementById('toggle_chat');
 const container = document.getElementById('container');
 const count = document.getElementById('count');
+const chatScroll = document.getElementById('chat-scroll');
+const chatContent = document.getElementById('chat-content');
+const chatInput = document.getElementById('chat-input');
 let connected = false;
 let room;
+let chat;
+let conv;
 let screenTrack;
+
 
 function addLocalVideo() {
     Twilio.Video.createLocalVideoTrack().then(track => {
@@ -15,6 +23,56 @@ function addLocalVideo() {
         video.appendChild(trackElement);
     });
 };
+
+function addMessageToChat(user, message) {
+    chatContent.innerHTML += `<p><b>${user}</b>: ${message}`;
+    chatScroll.scrollTop = chatScroll.scrollHeight;
+}
+
+function connectChat(token, conversationSid) {
+    return Twilio.Conversations.Client.create(token).then(_chat => {
+        chat = _chat;
+        return chat.getConversationBySid(conversationSid).then((_conv) => {
+            conv = _conv;
+            conv.on('messageAdded', (message) => {
+                addMessageToChat(message.author, message.body);
+            });
+            return conv.getMessages().then((messages) => {
+                chatContent.innerHTML = '';
+                for (let i = 0; i < messages.items.length; i++) {
+                    addMessageToChat(messages.items[i].author, messages.items[i].body);
+                }
+                toggleChat.disabled = false;
+            });
+        });
+    }).catch(e => {
+        console.log(e);
+    });
+};//เพิ่มเข้ามาใหม่
+
+function toggleChatHandler() {
+    event.preventDefault();
+    if (root.classList.contains('withChat')) {
+        root.classList.remove('withChat');
+    }
+    else {
+        root.classList.add('withChat');
+        chatScroll.scrollTop = chatScroll.scrollHeight;
+    }
+};
+
+toggleChat.addEventListener('click', toggleChatHandler);
+
+function onChatInputKey(ev) {
+    if (ev.keyCode == 13) {
+        conv.sendMessage(chatInput.value);
+        chatInput.value = '';
+    }
+};
+
+chatInput.addEventListener('keyup', onChatInputKey);
+
+
 
 function connectButtonHandler(event) {
     event.preventDefault();
@@ -48,11 +106,12 @@ function connectButtonHandler(event) {
 function connect(username) {
     let promise = new Promise((resolve, reject) => {
         // get a token from the back end
+        let data;
         fetch('/login', {
             method: 'POST',
             body: JSON.stringify({'username': username})
-        }).then(res => res.json()).then(data => {
-            // join video call
+        }).then(res => res.json()).then(_data => {
+            data = _data;
             return Twilio.Video.connect(data.token);
         }).then(_room => {
             room = _room;
@@ -61,13 +120,16 @@ function connect(username) {
             room.on('participantDisconnected', participantDisconnected);
             connected = true;
             updateParticipantCount();
+            connectChat(data.token, data.conversation_sid);
             resolve();
-        }).catch(() => {
+        }).catch(e => {
+            console.log(e);
             reject();
         });
     });
     return promise;
 };
+
 
 function updateParticipantCount() {
     if (!connected)
@@ -123,12 +185,23 @@ function trackUnsubscribed(track) {
 
 function disconnect() {
     room.disconnect();
+    if (chat) {
+        chat.shutdown().then(() => {
+            conv = null;
+            chat = null;
+        });
+    }
     while (container.lastChild.id != 'local')
         container.removeChild(container.lastChild);
     button.innerHTML = 'Join call';
+    if (root.classList.contains('withChat')) {
+        root.classList.remove('withChat');
+    }
+    toggleChat.disabled = true;
     connected = false;
     updateParticipantCount();
 };
+
 
 function shareScreenHandler() {
     event.preventDefault();
